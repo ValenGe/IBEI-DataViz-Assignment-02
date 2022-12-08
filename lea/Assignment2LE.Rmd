@@ -1,0 +1,313 @@
+---
+title: "Assignment 2"
+author: Valentin, Anda, Lea
+date: "2022-12-04"
+output: revealjs::revealjs_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Package to install:
+*install.packages("plotly")
+
+
+## Introduction to Plotly |
+#### 1. What is Plotly?
+* Plotly is an open-source data visualization library for Python and R written in JavaScript to create interactive graphs (Sanchez-Ayala, 2020)
+*
+
+## Gapminder Data Set
+
+```{r echo=FALSE, message=FALSE, comment=NA}
+library(gapminder)
+library(dplyr)
+head(gapminder)
+```
+## Using plotly.js with ggplot integration
+With the function ggplotly() we can easily convert a graph created with the ggplot2 package into interactive figures on plotly.js.After we created our plot with ggplot , let's call it 'p' - we simply have to assign it to a new figure with the function: fig <- ggplotly(p) - and we got our interactive figure.  
+To make it more interesting, we chose a little more complex plot including geom_point() that includes differently sized bubbles, and an annotation of country codes by using geom_text(). These are also called "Bubblecloud Plots". 
+
+## Bubble Cloud Plot from gapminder
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=NA}
+# Loading libraries
+
+library(countrycode)
+library(tidyverse)
+library(gapminder)
+library(dplyr)
+
+gapminder <- gapminder %>% filter(year==2007)
+gapminder <- gapminder %>%   # We select some relevant columns
+select(country, year, lifeExp, pop, continent, gdpPercap) %>%
+# We use mutate() to transform the variable `code`
+mutate(
+# We use countrycode() to extract the iso3 code from the english name
+country_code = countrycode(country,
+origin = "country.name",
+destination = "iso3c"))
+
+gapminder$continent_code <- recode(gapminder$continent,
+"Asia" = "ASI",
+"Africa" = "AFR",
+"Americas" = "AME",
+"Oceania"= "OCE",
+"Europe"= "EUR")  
+
+gapminder_eu <- gapminder %>% filter(continent=="Europe")
+gapminder_eu_countries <- distinct(gapminder_eu, country)
+
+gapminder_eu$subregion <- recode(gapminder_eu$country,
+"Albania" = "Eastern Europe", 
+"Austria" = "Western Europe",
+"Belgium" = "Western Europe",
+"Bosnia and Herzegovina" = "Eastern Europe", 
+"Bulgaria" = "Eastern Europe", 
+"Croatia" = "Eastern Europe", 
+"Czech Republic" = "Eastern Europe", 
+"Denmark" = "Northern Europe",
+"Finland" = "Northern Europe",
+"France" = "Western Europe",
+"Germany" = "Western Europe",
+"Greece" = "Southern Europe",
+"Hungary" = "Eastern Europe", 
+"Iceland" = "Northern Europe",
+"Ireland" = "Western Europe",
+"Italy" = "Southern Europe",
+"Montenegro" = "Eastern Europe",
+"Netherlands" = "Western Europe",
+"Norway" = "Northern Europe",
+"Poland" = "Eastern Europe", 
+"Portugal" = "Southern Europe", 
+"Romania" = "Eastern Europe", 
+"Serbia" = "Eastern Europe", 
+"Slovak Republic" = "Eastern Europe", 
+"Slovenia" = "Eastern Europe", 
+"Spain" = "Southern Europe",
+"Sweden" = "Northern Europe",
+"Switzerland" = "Western Europe",
+"Turkey" = "Eurasia", 
+"United Kingdom" = "Western Europe")
+
+
+library(plotly)
+library(gapminder)
+
+gapminder_eu$pop <- gapminder_eu$pop/1000000
+
+p1 <- gapminder_eu %>% 
+       ggplot(aes(x=pop, y=lifeExp)) + 
+  geom_point(aes(size=pop, color=subregion, text=paste("country:", country))) +
+geom_text(aes(size=pop, label=country_code, show.legend=FALSE), colour="gray20") +
+  labs(title = "Life Expectancy & Population in Europe",
+       caption = "*different point sizes according to Population Size",
+       x = "Population in Mio.",
+       y = "Average Life Expectancy",
+       size ="") +
+  scale_colour_discrete(name="Sub Region*")
+
+
+fig <- ggplotly(p1) 
+
+fig
+
+ ggsave("fig-1.png", width = 50, height = 40, units = "cm")
+  
+ 
+```
+
+
+## Bubble Cloud Plot Animation 
+We can also include animations in our Bubblecloud Plots, by simply adding the frame = "" specification to our geom_text function. Here we want to see development of Population Size and GDP in across continents in different years, so we use frame = year.
+
+## Plot Animation
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=NA}
+
+library(tidyverse)
+library(gapminder)
+library(dplyr)
+library(ggplot2)
+
+gapminder_cont <- gapminder %>% filter(year %in% c(1987, 1992, 1997, 2007, 2002))
+ 
+gapminder_cont$continent_code <- recode(gapminder_cont$continent,
+"Asia" = "ASI",
+"Africa" = "AFR",
+"Americas" = "AME",
+"Oceania"= "OCE",
+"Europe"= "EUR")  
+
+gapminder_cont <- gapminder_cont %>%    #create a newdata table of the aggregated data
+           group_by(continent, continent_code, year) %>%    
+           summarize(gdpPercap = mean(gdpPercap),
+                     pop = mean(pop))
+
+gapminder_cont$pop <- gapminder_cont$pop/1000000
+p2 <- gapminder_cont %>% 
+       ggplot(aes(x=pop, y=gdpPercap, frame = year)) + 
+  geom_point(aes(size=pop, frame = year, color=continent)) +
+geom_text(aes(size=pop, frame = year,label=continent_code), colour="gray20") +
+  labs(title = "Population & GDP across continents from 1987-2007",
+       caption= "*different point sizes according to Population Size",
+       x = "Population in Mio.",
+       y = "GDP per capita",
+       size="")+
+  scale_colour_discrete(name="Region")
+
+fig2 <- ggplotly(p2)
+
+fig2
+
+
+```
+
+---
+
+## References
+
+* Sanchez-Ayala, M., Medium, 16.02.2020: https://medium.com/swlh/plotly-beautiful-data-visualization-made-easy-3f7e48864706
+
+## Using plotly.js with ggplot integration
+With the function ggplotly() we can easily convert a graph created with the ggplot2 package into interactive figures on plotly.js.After we created our plot with ggplot , let's call it 'p' - we simply have to assign it to a new figure with the function: fig <- ggplotly(p) - and we got our interactive figure.  
+To make it more interesting, we chose a little more complex plot including geom_point() that includes differently sized bubbles, and an annotation of country codes by using geom_text(). These are also called "Bubblecloud Plots". 
+
+## Bubble Cloud Plot from gapminder
+```{r, echo=FALSE, warning=FALSE, message=FALSE, comment=NA}
+# Loading libraries
+
+library(countrycode)
+library(tidyverse)
+library(gapminder)
+library(dplyr)
+
+gapminder <- gapminder %>% filter(year==2007)
+gapminder <- gapminder %>%   # We select some relevant columns
+select(country, year, lifeExp, pop, continent, gdpPercap) %>%
+# We use mutate() to transform the variable `code`
+mutate(
+# We use countrycode() to extract the iso3 code from the english name
+country_code = countrycode(country,
+origin = "country.name",
+destination = "iso3c"))
+
+gapminder$continent_code <- recode(gapminder$continent,
+"Asia" = "ASI",
+"Africa" = "AFR",
+"Americas" = "AME",
+"Oceania"= "OCE",
+"Europe"= "EUR")  
+
+gapminder_eu <- gapminder %>% filter(continent=="Europe")
+gapminder_eu_countries <- distinct(gapminder_eu, country)
+
+gapminder_eu$subregion <- recode(gapminder_eu$country,
+"Albania" = "Eastern Europe", 
+"Austria" = "Western Europe",
+"Belgium" = "Western Europe",
+"Bosnia and Herzegovina" = "Eastern Europe", 
+"Bulgaria" = "Eastern Europe", 
+"Croatia" = "Eastern Europe", 
+"Czech Republic" = "Eastern Europe", 
+"Denmark" = "Northern Europe",
+"Finland" = "Northern Europe",
+"France" = "Western Europe",
+"Germany" = "Western Europe",
+"Greece" = "Southern Europe",
+"Hungary" = "Eastern Europe", 
+"Iceland" = "Northern Europe",
+"Ireland" = "Western Europe",
+"Italy" = "Southern Europe",
+"Montenegro" = "Eastern Europe",
+"Netherlands" = "Western Europe",
+"Norway" = "Northern Europe",
+"Poland" = "Eastern Europe", 
+"Portugal" = "Southern Europe", 
+"Romania" = "Eastern Europe", 
+"Serbia" = "Eastern Europe", 
+"Slovak Republic" = "Eastern Europe", 
+"Slovenia" = "Eastern Europe", 
+"Spain" = "Southern Europe",
+"Sweden" = "Northern Europe",
+"Switzerland" = "Western Europe",
+"Turkey" = "Eurasia", 
+"United Kingdom" = "Western Europe")
+
+
+library(plotly)
+library(gapminder)
+
+gapminder_eu$pop <- gapminder_eu$pop/1000000
+
+p1 <- gapminder_eu %>% 
+       ggplot(aes(x=pop, y=lifeExp)) + 
+  geom_point(aes(size=pop, color=subregion, text=paste("country:", country))) +
+geom_text(aes(size=pop, label=country_code, show.legend=FALSE), colour="gray20") +
+  labs(title = "Life Expectancy & Population in Europe",
+       caption = "*different point sizes according to Population Size",
+       x = "Population in Mio.",
+       y = "Average Life Expectancy",
+       size ="") +
+  scale_colour_discrete(name="Sub Region*")
+
+
+fig <- ggplotly(p1) 
+
+fig
+
+ ggsave("fig-1.png", width = 50, height = 40, units = "cm")
+  
+ 
+```
+
+
+## Bubble Cloud Plot Animation 
+We can also include animations in our Bubblecloud Plots, by simply adding the frame = "" specification to our geom_text function. Here we want to see development of Population Size and GDP in across continents in different years, so we use frame = year.
+
+## Plot Animation
+```{r echo=FALSE, warning=FALSE,message=FALSE, comment=NA}
+
+library(tidyverse)
+library(gapminder)
+library(dplyr)
+library(ggplot2)
+
+gapminder_cont <- gapminder %>% filter(year %in% c(1987, 1992, 1997, 2007, 2002))
+ 
+gapminder_cont$continent_code <- recode(gapminder_cont$continent,
+"Asia" = "ASI",
+"Africa" = "AFR",
+"Americas" = "AME",
+"Oceania"= "OCE",
+"Europe"= "EUR")  
+
+gapminder_cont <- gapminder_cont %>%    #create a newdata table of the aggregated data
+           group_by(continent, continent_code, year) %>%    
+           summarize(gdpPercap = mean(gdpPercap),
+                     pop = mean(pop))
+
+gapminder_cont$pop <- gapminder_cont$pop/1000000
+p2 <- gapminder_cont %>% 
+       ggplot(aes(x=pop, y=gdpPercap)) + 
+  geom_point(aes(size=pop, color=continent,frame = year, text=paste("continent:", continent))) +
+geom_text(aes(size=pop, label=continent_code,frame = year), colour="gray20") +
+  labs(title = "Population & GDP across continents from 1987-2007",
+       subtitle = "Different point sizes according to Population Size",
+       x = "Population in Mio.",
+       y = "GDP per capita",
+       size="")+
+  scale_colour_discrete(name="Region")
+
+fig2 <- ggplotly(p2, width = 600, height = 400) %>%
+    animation_opts(1000)
+
+fig2
+
+
+```
+
+---
+
+## References
+
+* Sanchez-Ayala, M., Medium, 16.02.2020: https://medium.com/swlh/plotly-beautiful-data-visualization-made-easy-3f7e48864706
