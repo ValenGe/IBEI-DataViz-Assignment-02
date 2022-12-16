@@ -25,7 +25,7 @@ library(stringr)
 
 ## Maps with `ggplotly`
 
-The `ggplotly` function also allows us to make `ggplot` maps interactive. To do so, the dataframe at hand, once again based on `gapminder`, needs to be complemented with spatial data. 
+The `ggplotly` function also allows us to make `ggplot` maps interactive. To do so, a chosen dataframe at hand needs to be complemented with spatial data. 
 
 This can be accomplished by relying on the logic of *simple features*. To use this logic, one simply adds a "geometry" containing coordinates to a chosen dataframe based on which a spatial object can be drawn. A good source to obtain this data at the country-level is the `rnaturalearth` package which covers the *simple features* of all countries. In the following, the "geometries" provided by `rnaturalearth's` `ne_countries` function are combined with the `gapminder` dataframe based on ISO countrycodes. The resulting dataframe can then be furthered manipulated before it is converted into an `sf()` object that can be easily plotted through `ggplot`.
 
@@ -49,13 +49,12 @@ gapminder <- gapminder %>%
 
 # Merging and data wrangling 
 df_ggplot <-
-  
-# Merging of `rnaturalearth's` spatial data with gapminder   
-dplyr::left_join(
-  x = world,
-  y = gapminder,
-  by = "iso3c"
-) %>%
+  # Merging of `rnaturalearth's` spatial data with gapminder   
+  dplyr::left_join(
+    x = world,
+    y = gapminder,
+    by = "iso3c"
+    ) %>%
   # Some data wrangling to prepare the data
   dplyr::mutate(
     # Using `countrycode` to obtain country names
@@ -231,13 +230,24 @@ df_ggplot %>%
     title = "GDP per capita on the African continent (2007)",
     # An additional specification required to correctly render the map plot
     showlegend = F
-    ) 
+    ) %>%
+  # Using `plotly` to adjust the appearance of the colorbar
+  colorbar(
+    # Changing the title
+    title = "GDP per capita (logged)"
+  )
 
 ```
 
 ### Using `plotly` maps with animation sliders
 
-```{r choropleth plotly, message = FALSE, warning = FALSE}
+Animation sliders allow viewers to interactively change values of variables in a plot. They are, for instance, a great way to e.g. visualize changes in variables over time. 
+
+To introduce an animation slider into our `plotly` plot, we can largely follow the same procedure as with non-animated plots. The main difference is that we have to add a variable to the trace which will govern the animation slider - this can be a year variable for instance. The `plotly` package then also allows us to modify both the animations as well as the style of the slider.
+
+The following example will demonstrate this by displaying variation in "GDP per capita" over time on the African continent.
+
+```{r choropleth plotly sliders, message = FALSE, warning = FALSE}
 
 df_ggplot %>%
   # Using `plotly` to create a map based on simple features
@@ -266,70 +276,115 @@ df_ggplot %>%
     # An additional specification required to correctly render the map plot
     showlegend = F
     ) %>%
+  # Using `plotly` to alter animation options 
   plotly::animation_opts(
+    # Setting the duration of transitions between frames to zero
     transition = 0) %>%
+  # Using `plotly` to alter the animation slider
   plotly::animation_slider(
+    # Changing how the selected slider value is displayed
     currentvalue = list(
+      # Adding a prefix to the slider value
       prefix = paste("<b>", "Year: "), 
+      # Changing the font of the slider value
       font = list(color = "black"))
   ) %>%
+  # Using `plotly` to specify which elements of the plot will trigger the display of additional information as specified above
   plotly::style(
     hoveron = "fills"
-    ) 
+    ) %>%
+  # Using `plotly` to adjust the appearance of the colorbar
+  colorbar(
+    # Changing the title
+    title = "GDP per capita (logged)"
+  )
 
 ```
 
-#### Enabling highlighting
+### Highlighting with `plotly`
 
-To subsequently use `plotly's` `hightlight` function, one first has to specify the variable along which the highlighting is desired to occur. This can be individual identifiers such as the name of a country, or group variables such as income groups. Below, the "country" variable is used.
+In its basic form, highlighting will allow you to highlight elements of your plot based on pre-defined variables using graphical queries. In its more advanced manifestations, highlighting can also be used to link features in multiple plots along shared variables. The following section will focus on simple applications of this feature.
+
+#### Preparing the data for highlighting
+
+To use `plotly's` `hightlight_key` function, one first has to specify the variable along which the highlighting is desired to occur. This can be individual identifiers such as the name of a country, or group variables such as income groups. Note that by adding `highlight_key`, the dataframe is transformed into a "SharedData" object. Objects of this class cannot be easily manipulated wherefore data wrangling should take place before the conversion. 
+
+In the example provided below, we will again plot a choropleth map displaying different levels of GDP per capita. This time, however, it will be possible to select and highlight countries based on a classification of income levels.
 
 ```{r highlighting, warning = FALSE}
 
 df_plotly <-
   df_ggplot %>%
-  plotly::highlight_key(~economy, group = "Income group")
+  # Using `dplyr` and `lubridate` to filter for the year 2007
+  dplyr::filter(year == lubridate::ymd(2007, truncated = 2L)) %>%
+  # Using `plotly` to define the highlighting options 
+  plotly::highlight_key(
+    # Defining the variable by which highlughting will take place
+    ~economy, 
+    # Assigning a name to the variable by which highlighting will take place
+    group = "Income group")
 
 ```
 
-#### The `plotly` way
+#### Using `plotly` maps with highlighting
 
-```{r choropleth plotly, message = FALSE, warning = FALSE}
-choro_map_plotly <-
-plotly::plot_ly(
-  stroke = I("black")
-  ) %>%
-  plotly::add_sf(
-    data = df_plotly,
+Having manipulated the dataframe into a "SharedData" object, it is sufficient to simply add the `highlight` function to the plot in order to use the feature. There are, however, of course multiple options for customization such as whether there should be a selection widget.
+
+In the plot below, you can just click on a country to select this and all other countries belonging to the same income group. Using the selection widget facilitates switching between different selections.
+
+```{r choropleth plotly highltighting, message = FALSE, warning = FALSE}
+
+df_plotly %>%
+  # Using `plotly` to create a map based on simple features
+  plotly::plot_ly(
+    # Since traces can only have one fill color, each country will have to get its own trace when creating a choropleth map
     split = ~iso3c,
-    frame = ~year(year),
+    # The fill color of each polygon is set to represent the polygons logged GDP per capita value
     color = ~log(gdpPercap),
+    # Specifying the color of the polygon's borders
+    stroke = I("black"),
+    # Supplying a custom text aesthetic 
     text = ~paste("<b>", country, "</b>", "\n",
                   "Year:", year(year), "\n",
                   "GDP per capita:", round(gdpPercap, 2), "\n",
                   economy),
+    # Specifying which elements of the plot will trigger the display of additional information as specified above
     hoveron = "fills",
-    hoverinfo = "text"
-  ) %>%
+    # Specifying which information contained in the data is to be displayed in the interactive plot
+    hoverinfo = "text") %>%
+  # Using `plotly` to adjust the plot's appearance
   plotly::layout(
+    # Chaning the plot title
+    title = "GDP per capita on the African continent (2007)",
+    # An additional specification required to correctly render the map plot
     showlegend = F
     ) %>%
-  plotly::animation_opts(
-    transition = 0, 
-    redraw = T) %>%
-  plotly::animation_slider(
-    currentvalue = list(
-      prefix = paste("<b>", "Year: "), 
-      font = list(color = "black"))
-  ) %>%
+  # Using `plotly` to specify which elements of the plot will trigger the display of additional information as specified above
   plotly::style(
     hoveron = "fills"
     ) %>%
+  # Using `plotly` to adjust the appearance of the colorbar
+  colorbar(
+    # Changing the title
+    title = "GDP per capita (logged)"
+  ) %>%
+  # Using `plotly` to define how highlighting will operate in the final visualization
   plotly::highlight(
+    # Defining what will trigger the highlighting of a (group of) polygon(s)
+    on = "plotly_click",
+    # Defining whether selection will persist once another object is selected
     persistent = T,
+    # Defining whether there will be a widget assisting the selection of variables by which highlighting occurs
     selectize = T,
+    # Defining by how much the opacity of non-selected is reduced
     opacityDim = .25)
-choro_map_plotly
+
 ```
 
 ## References
 
+Sievert, Carson (2018a): Learning from and improving upon ggplotly conversions. Available online at https://blog.cpsievert.me/2018/01/30/learning-improving-ggplotly-geom-sf/.
+
+Sievert, Carson (2018b): Visualizing geo-spatial data with sf and plotly. Available online at https://blog.cpsievert.me/2018/03/30/visualizing-geo-spatial-data-with-sf-and-plotly/.
+
+Sievert, Carson (2020): Interactive web-based data visualization with r, plotly, and shiny. 1st. Boca Raton: Chapman & Hall/CRC (Chapman & Hall/CRC the R series).
