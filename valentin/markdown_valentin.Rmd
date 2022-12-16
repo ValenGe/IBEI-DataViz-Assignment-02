@@ -29,7 +29,7 @@ The `ggplotly` function also allows us to make `ggplot` maps interactive. To do 
 
 This can be accomplished by relying on the logic of *simple features*. To use this logic, one simply adds a "geometry" containing coordinates to a chosen dataframe based on which a spatial object can be drawn. A good source to obtain this data at the country-level is the `rnaturalearth` package which covers the *simple features* of all countries. In the following, the "geometries" provided by `rnaturalearth's` `ne_countries` function are combined with the `gapminder` dataframe based on ISO countrycodes. The resulting dataframe can then be furthered manipulated before it is converted into an `sf()` object that can be easily plotted through `ggplot`.
 
-Following these steps, the examples provided below aim to illustrate variation in GDP per capita as well as population size on the African continent.
+Following these steps, the examples provided below aim to illustrate variation in GDP per capita as well as population size on the African continent. Note that `gapminder` does not contain data on West Sahara and South Sudan. Both countries are thus left blank in the plots.
 
 ### Preparing the data
 
