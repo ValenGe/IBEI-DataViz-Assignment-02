@@ -1,0 +1,269 @@
+---
+title: "Untitled"
+format: revealjs
+editor: visual
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(gapminder)
+library(rnaturalearth)
+library(sf)
+library(countrycode)
+library(plotly)
+library(ggthemes)
+library(lubridate)
+library(stringr)
+```
+
+```{r, include=FALSE}
+# Retrieving spatial data through from `rnaturalearth`
+world <- rnaturalearth::ne_countries(scale = "small", 
+                                     returnclass = "sf") %>%
+  dplyr::select(iso_a3, economy, geometry) %>%
+  dplyr::rename(iso3c = iso_a3)
+
+# Retrieving the `gapminder` data
+gapminder <- gapminder %>%
+  dplyr::mutate(iso3c = countrycode::countrycode(country, "country.name", "iso3c"))
+
+# Merging and data wrangling 
+df_ggplot <-
+  # Merging of `rnaturalearth's` spatial data with gapminder   
+  dplyr::left_join(
+    x = world,
+    y = gapminder,
+    by = "iso3c"
+    ) %>%
+  # Some data wrangling to prepare the data
+  dplyr::mutate(
+    # Using `countrycode` to obtain country names
+    country = countrycode::countrycode(iso3c, "iso3c", "country.name"),
+    # Using `lubridate` to set "year" variable to class "Date"
+    year = lubridate::ymd(year, truncated = 2L),
+    # Using `stringr` to remove digits and points from `rnaturalearth's` income group classification
+    economy = stringr::str_remove_all(economy, "[:digit:]\\.\\s"),
+    # Creating a variable containing population size in millions
+    pop_m = pop / 1e6) %>%
+  # Using `dplyr` to filter for African countries 
+  filter(continent == "Africa") %>%
+  # Using `sf` to transform dataframe into `sf` object
+  sf::st_as_sf() 
+```
+
+```{r, include=FALSE}
+# Creating and storing the initial `ggplot` visualization
+choro_map_ggplot <- 
+  df_ggplot %>%
+  # Using `dplyr` and `lubridate` to filter for the year 2007
+  dplyr::filter(year == lubridate::ymd(2007, truncated = 2L)) %>%
+  # The `sf` object is supplied to ``ggplot`
+  ggplot2::ggplot() +
+  # Using `ggplot` to visualize countries based on simple features
+  ggplot2::geom_sf(aes(
+    # To create a choropleth map, the fill color of each polygon is set to represent the polygons GDP per capita value
+    fill = gdpPercap, 
+    # A custom text aesthetic is created that can subsequently be supplied to `ggplotly`
+    text = paste("<b>", country, "</b>", "\n",
+                 "Year:", year(year), "\n",
+                 "GDP per capita:", round(gdpPercap, 2)))
+    ) +
+  # Using `ggplot2` to adjust the colorscale
+  ggplot2::scale_fill_viridis_c(option = "viridis", 
+                                trans = "log", 
+                                name = "GDP per capita"
+  ) +
+  # Using `ggthemes` to select a theme suitable for maps
+  ggthemes::theme_map()
+
+```
+
+```{r, include=FALSE}
+
+df_plotly <-
+  df_ggplot %>%
+  # Using `dplyr` and `lubridate` to filter for the year 2007
+  dplyr::filter(year == lubridate::ymd(2007, truncated = 2L)) %>%
+  # Using `plotly` to define the highlighting options 
+  plotly::highlight_key(
+    # Defining the variable by which highlughting will take place
+    ~economy, 
+    # Assigning a name to the variable by which highlighting will take place
+    group = "Income group")
+
+```
+
+## Maps: `ggplotly` vs `plot_ly` 
+
+::: columns
+::: {.column width="45%"}
+`ggplotly`
+
+```{r}
+#| out-width: "75%"
+#| out-height: "75%"
+
+# Using `plotly` to transform the `ggplot` visualization into an interactive graphic
+plotly::ggplotly(
+  # Specifying the `ggplot` visualization to be used
+  p = choro_map_ggplot,
+  # Specifying which information contained in the data is to be displayed in the interactive plot
+  tooltip = "text"
+  ) %>%
+  # Using `plotly` to specify which elements of the plot will trigger the display of additional information as specified above
+  plotly::style(
+    hoveron = "fills"
+    )
+
+```
+:::
+
+::: {.column width="45%"}
+`plot_ly`
+
+```{r}
+#| out-width: "75%"
+#| out-height: "75%"
+
+df_ggplot %>%
+      # Using `dplyr` and `lubridate` to filter for the year 2007
+      dplyr::filter(year == lubridate::ymd(2007, truncated = 2L)) %>%
+  # Using `plotly` to create a map based on simple features
+  plotly::plot_ly(
+    # Since traces can only have one fill color, each country will have to get its own trace when creating a choropleth map
+    split = ~iso3c,
+    # The fill color of each polygon is set to represent the polygons logged GDP per capita value
+    color = ~log(gdpPercap),
+    # Specifying the color of the polygon's borders
+    stroke = I("black"),
+    # Supplying a custom text aesthetic 
+    text = ~paste("<b>", country, "</b>", "\n",
+                  "Year:", year(year), "\n",
+                  "GDP per capita:", round(gdpPercap, 2), "\n",
+                  economy),
+    # Specifying which elements of the plot will trigger the display of additional information as specified above
+    hoveron = "fills",
+    # Specifying which information contained in the data is to be displayed in the interactive plot
+    hoverinfo = "text") %>%
+  # Using `plotly` to adjust the plot's appearance
+  plotly::layout(
+    # An additional specification required to correctly render the map plot
+    showlegend = F
+    ) 
+```
+:::
+:::
+
+## Maps: `ggplotly` vs `plot_ly` - Code
+
+::: columns
+::: {.column width="50%"}
+`ggplotly`
+
+```{r}
+#| echo: true
+
+choro_map_ggplot <- 
+  df_ggplot %>%
+  dplyr::filter(year == lubridate::ymd(2007, truncated = 2L)) %>%
+  ggplot2::ggplot() +
+  ggplot2::geom_sf(aes(
+    fill = gdpPercap, 
+     text = paste("<b>", country, "</b>", "\n",
+                 "Year:", year(year), "\n",
+                 "GDP per capita:", round(gdpPercap, 2)))
+    ) +
+  ggplot2::scale_fill_viridis_c(option = "viridis", 
+                                trans = "log", 
+                                name = "GDP per capita"
+  ) +
+  ggthemes::theme_map()
+
+plotly::ggplotly(
+  p = choro_map_ggplot,
+ tooltip = "text"
+  ) %>%
+  plotly::style(
+    hoveron = "fills"
+    )
+
+```
+:::
+
+::: {.column width="50%"}
+`plot_ly`
+
+```{r}
+#| echo: true
+
+choro_map_plotly <- 
+df_ggplot %>%
+      dplyr::filter(year == lubridate::ymd(2007, truncated = 2L)) %>%
+  plotly::plot_ly(
+    split = ~iso3c,
+    color = ~log(gdpPercap),
+    stroke = I("black"),
+    text = ~paste("<b>", country, "</b>", "\n",
+                  "Year:", year(year), "\n",
+                  "GDP per capita:", round(gdpPercap, 2), "\n",
+                  economy),
+    hoveron = "fills",
+    hoverinfo = "text") %>%
+  plotly::layout(
+    showlegend = F
+    ) 
+
+```
+:::
+:::
+
+## Highlighting with `plot_ly`
+
+```{r}
+
+df_plotly %>%
+  # Using `plotly` to create a map based on simple features
+  plotly::plot_ly(
+    # Since traces can only have one fill color, each country will have to get its own trace when creating a choropleth map
+    split = ~iso3c,
+    # The fill color of each polygon is set to represent the polygons logged GDP per capita value
+    color = ~log(gdpPercap),
+    # Specifying the color of the polygon's borders
+    stroke = I("black"),
+    # Supplying a custom text aesthetic 
+    text = ~paste("<b>", country, "</b>", "\n",
+                  "Year:", year(year), "\n",
+                  "GDP per capita:", round(gdpPercap, 2), "\n",
+                  economy),
+    # Specifying which elements of the plot will trigger the display of additional information as specified above
+    hoveron = "fills",
+    # Specifying which information contained in the data is to be displayed in the interactive plot
+    hoverinfo = "text") %>%
+  # Using `plotly` to adjust the plot's appearance
+  plotly::layout(
+    # Chaning the plot title
+    title = "GDP per capita on the African continent (2007)",
+    # An additional specification required to correctly render the map plot
+    showlegend = F
+    ) %>%
+  # Using `plotly` to specify which elements of the plot will trigger the display of additional information as specified above
+  plotly::style(
+    hoveron = "fills"
+    ) %>%
+  # Using `plotly` to adjust the appearance of the colorbar
+  colorbar(
+    # Changing the title
+    title = "GDP per capita (logged)"
+  ) %>%
+  # Using `plotly` to define how highlighting will operate in the final visualization
+  plotly::highlight(
+    # Defining what will trigger the highlighting of a (group of) polygon(s)
+    on = "plotly_click",
+    # Defining whether selection will persist once another object is selected
+    persistent = T,
+    # Defining whether there will be a widget assisting the selection of variables by which highlighting occurs
+    selectize = T,
+    # Defining by how much the opacity of non-selected is reduced
+    opacityDim = .25)
+
+```

@@ -122,6 +122,7 @@ plotly::ggplotly(
   plotly::style(
     hoveron = "fills"
     )
+
 ```
 
 ### Bubble maps with `ggplotly`
